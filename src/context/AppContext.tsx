@@ -21,8 +21,8 @@ interface AppContextType {
   // Actions
   setRole: (role: UserRole) => void;
   switchRole: () => void;
-  signIn: (email: string, role: UserRole) => boolean;
-  signUp: (name: string, email: string, role: UserRole, monthlyBudget?: number) => boolean;
+  signIn: (email: string, password: string, role: UserRole) => { success: boolean; error?: string };
+  signUp: (name: string, email: string, password: string, role: UserRole, monthlyBudget?: number) => { success: boolean; error?: string };
   signOut: () => void;
 
   // Transactions CRUD
@@ -349,6 +349,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
+  // Registered Accounts Database for strict email & password authentication
+  const [registeredAccounts, setRegisteredAccounts] = useState([
+    {
+      id: 'usr-admin-1',
+      name: 'Admin Gowtham',
+      email: 'admin@financetracker.com',
+      password: 'admin123',
+      role: 'admin' as UserRole,
+      phone: '+91 98765 00001',
+      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
+      monthlyBudget: 75000,
+      accountTier: 'Master Admin',
+    },
+    {
+      id: 'usr-customer-1',
+      name: 'Gowtham S',
+      email: 'customer@financetracker.com',
+      password: 'customer123',
+      role: 'customer' as UserRole,
+      phone: '+91 98765 43210',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      monthlyBudget: 50000,
+      accountTier: 'Customer Pro',
+    },
+    {
+      id: 'usr-customer-2',
+      name: 'Kavitha Priya',
+      email: 'kavitha@financetracker.com',
+      password: 'kavitha123',
+      role: 'customer' as UserRole,
+      phone: '+91 94444 12345',
+      avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150',
+      monthlyBudget: 45000,
+      accountTier: 'Customer Elite',
+    },
+  ]);
+
   const setRole = (newRole: UserRole) => {
     setRoleState(newRole);
     setUser((prev) => ({
@@ -362,44 +399,124 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setRole(role === 'customer' ? 'admin' : 'customer');
   };
 
-  const signIn = (email: string, targetRole: UserRole) => {
+  // Strict Sign In: Validates that email, password and role match registered credentials
+  const signIn = (
+    inputEmail: string,
+    inputPassword: string,
+    targetRole: UserRole
+  ): { success: boolean; error?: string } => {
+    const cleanEmail = inputEmail.trim().toLowerCase();
+    const cleanPassword = inputPassword.trim();
+
+    // Check if account exists
+    const account = registeredAccounts.find(
+      (acc) => acc.email.toLowerCase() === cleanEmail
+    );
+
+    if (!account) {
+      return {
+        success: false,
+        error: `No registered account found with email "${inputEmail}". Access denied.`,
+      };
+    }
+
+    // Check if role matches
+    if (account.role !== targetRole) {
+      return {
+        success: false,
+        error: `Role mismatch: This account belongs to a registered ${account.role.toUpperCase()}. Please select the ${account.role.toUpperCase()} tab.`,
+      };
+    }
+
+    // Check if password matches
+    if (account.password !== cleanPassword) {
+      return {
+        success: false,
+        error: 'Incorrect password. Access denied.',
+      };
+    }
+
+    // Credentials verified! Allow login
     setIsAuthenticated(true);
     setRoleState(targetRole);
-    if (email === 'customer@financetracker.com' && transactions.length === 0) {
+
+    if (account.email === 'customer@financetracker.com' && transactions.length === 0) {
       setTransactions(initialTransactions);
       setUser(defaultUser);
     } else {
-      setUser((prev) => ({
-        ...prev,
-        email,
-        role: targetRole,
-        name: targetRole === 'admin' ? 'Admin Gowtham' : (prev.name || 'Gowtham S'),
-      }));
+      setUser({
+        id: account.id,
+        name: account.name,
+        email: account.email,
+        phone: account.phone || '+91 90000 00000',
+        role: account.role,
+        avatar: account.avatar || (account.role === 'admin'
+          ? 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150'
+          : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'),
+        monthlyBudget: account.monthlyBudget || 50000,
+        currency: '₹',
+        accountTier: account.accountTier || (account.role === 'admin' ? 'Master Admin' : 'Customer Account'),
+        memberSince: 'October 2026',
+      });
     }
-    return true;
+
+    return { success: true };
   };
 
-  const signUp = (name: string, email: string, targetRole: UserRole, monthlyBudgetNum?: number) => {
+  const signUp = (
+    name: string,
+    email: string,
+    password: string,
+    targetRole: UserRole,
+    monthlyBudgetNum?: number
+  ): { success: boolean; error?: string } => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    const exists = registeredAccounts.some(
+      (acc) => acc.email.toLowerCase() === cleanEmail
+    );
+
+    if (exists) {
+      return {
+        success: false,
+        error: `An account with email "${email}" is already registered. Please sign in instead.`,
+      };
+    }
+
+    const newAccount = {
+      id: `usr-${Date.now()}`,
+      name: name.trim(),
+      email: cleanEmail,
+      password: cleanPassword,
+      role: targetRole,
+      phone: '+91 90000 00000',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+      monthlyBudget: monthlyBudgetNum || 50000,
+      accountTier: 'New Customer',
+    };
+
+    setRegisteredAccounts((prev) => [...prev, newAccount]);
     setIsAuthenticated(true);
     setRoleState(targetRole);
     setUser({
-      id: `usr-${Date.now()}`,
-      name,
-      email,
-      phone: '+91 90000 00000',
-      role: targetRole,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-      monthlyBudget: monthlyBudgetNum || 50000,
+      id: newAccount.id,
+      name: newAccount.name,
+      email: newAccount.email,
+      phone: newAccount.phone,
+      role: newAccount.role,
+      avatar: newAccount.avatar,
+      monthlyBudget: newAccount.monthlyBudget,
       currency: '₹',
       accountTier: 'New Customer',
       memberSince: 'October 2026',
     });
 
-    // When creating a new customer account, dashboard is fresh and empty!
     if (targetRole === 'customer') {
       setTransactions([]);
     }
-    return true;
+
+    return { success: true };
   };
 
   const signOut = () => {

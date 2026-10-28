@@ -105,12 +105,24 @@ export const AuthScreen: React.FC = () => {
 
   const handleSignIn = () => {
     if (!validate()) return;
-    signIn(email.trim(), selectedRole);
+    const result = signIn(email.trim(), password, selectedRole);
+    if (!result.success) {
+      setErrors((prev) => ({
+        ...prev,
+        auth: result.error || 'Access Denied: Invalid email or password.',
+      }));
+    }
   };
 
   const handleSignUp = () => {
     if (!validate()) return;
-    signUp(name.trim(), email.trim(), selectedRole, parseFloat(monthlyBudget) || 50000);
+    const result = signUp(name.trim(), email.trim(), password, selectedRole, parseFloat(monthlyBudget) || 50000);
+    if (!result.success) {
+      setErrors((prev) => ({
+        ...prev,
+        auth: result.error || 'Failed to register account.',
+      }));
+    }
   };
 
   return (
@@ -236,6 +248,14 @@ export const AuthScreen: React.FC = () => {
 
           {/* Form Inputs */}
           <View style={styles.formFields}>
+            {/* Strict Authentication Error Banner */}
+            {errors.auth ? (
+              <View style={styles.authErrorBanner}>
+                <Ionicons name="alert-circle" size={20} color="#F43F5E" />
+                <Text style={styles.authErrorBannerText}>{errors.auth}</Text>
+              </View>
+            ) : null}
+
             {activeTab === 'signup' && (
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Full Name *</Text>
@@ -278,7 +298,7 @@ export const AuthScreen: React.FC = () => {
                 value={email}
                 onChangeText={(t) => {
                   setEmail(t);
-                  if (errors.email) setErrors((prev) => ({ ...prev, email: '' }));
+                  setErrors((prev) => ({ ...prev, email: '', auth: '' }));
                 }}
               />
               {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
@@ -298,7 +318,7 @@ export const AuthScreen: React.FC = () => {
                 value={password}
                 onChangeText={(t) => {
                   setPassword(t);
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
+                  setErrors((prev) => ({ ...prev, password: '', auth: '' }));
                 }}
               />
               {errors.password ? (
@@ -533,5 +553,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-
+  authErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(244, 63, 94, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(244, 63, 94, 0.4)',
+    marginBottom: 14,
+  },
+  authErrorBannerText: {
+    color: '#F43F5E',
+    fontSize: 12.5,
+    fontWeight: '600',
+    flex: 1,
+    lineHeight: 17,
+  },
 });
